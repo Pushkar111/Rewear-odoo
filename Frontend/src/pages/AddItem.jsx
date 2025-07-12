@@ -4,6 +4,8 @@ import { toast } from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Tag, Plus, X, Upload, Loader2 } from 'lucide-react';
 import itemService from '../services/itemService';
+import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 
 const AddItem = () => {
   const navigate = useNavigate();
@@ -36,24 +38,63 @@ const AddItem = () => {
       [field]: value
     });
   };
-
-  const handleImageUpload = (event) => {
+const handleImageUpload = async (event) => {
     const files = Array.from(event.target.files);
     
-    // Create preview URLs
-    const newPreviewImages = files.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      url: URL.createObjectURL(file),
-      file: file
-    }));
+    // Validate files are images
+    const validFiles = files.filter(file => file.type.startsWith('image/'));
     
-    setPreviewImages([...previewImages, ...newPreviewImages]);
-    setFormData({
-      ...formData,
-      images: [...formData.images, ...files]
-    });
-  };
-
+    if (validFiles.length < files.length) {
+        toast.error('Only image files are allowed');
+        return;
+    }
+    
+    try {
+        // Compression options
+        const options = {
+            maxSizeMB: 1, // Max file size in MB
+            maxWidthOrHeight: 1920, // Max width/height
+            useWebWorker: true
+        };
+        
+        // Create preview URLs and compress images
+        const compressPromises = validFiles.map(async (file) => {
+            // Create preview immediately for better UX
+            const preview = {
+                id: Math.random().toString(36).substring(7),
+                url: URL.createObjectURL(file),
+                file: file
+            };
+            
+            // Compress the image if it's too large
+            if (file.size > 2 * 1024 * 1024) { // If > 2MB
+                try {
+                    const compressedFile = await imageCompression(file, options);
+                    return {
+                        ...preview,
+                        file: compressedFile
+                    };
+                } catch (error) {
+                    console.error('Compression failed:', error);
+                    return preview;
+                }
+            }
+            
+            return preview;
+        });
+        
+        const processedImages = await Promise.all(compressPromises);
+        
+        setPreviewImages([...previewImages, ...processedImages]);
+        setFormData({
+            ...formData,
+            images: [...formData.images, ...processedImages.map(img => img.file)]
+        });
+    } catch (error) {
+        console.error('Error processing images:', error);
+        toast.error('Error processing images');
+    }
+};
   const removeImage = (imageId) => {
     const updatedPreviews = previewImages.filter(image => image.id !== imageId);
     
@@ -105,20 +146,21 @@ const AddItem = () => {
 
     setIsSubmitting(true);
 
-    try {
-      const result = await itemService.createItem(formData);
-      
-      if (result.success) {
-        toast.success('Item added successfully!');
-        navigate('/dashboard');
-      } else {
-        toast.error(result.message || 'Failed to add item. Please try again.');
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add item. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+      try {
+    // Use itemService.createItem instead of direct axios call
+    const result = await itemService.createItem(formData);
+    
+    if (result) {
+      toast.success('Item added successfully!');
+      navigate('/dashboard');
+    } else {
+      toast.error('Failed to add item. Please try again.');
     }
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Failed to add item. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
   };
 
   return (
@@ -316,7 +358,7 @@ const AddItem = () => {
                   <Upload className="h-10 w-10 text-gray-400 mb-2" />
                   <p className="text-gray-700 dark:text-gray-300 font-medium">Click to upload images</p>
                   <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                    PNG, JPG, GIF up to 5MB
+                    PNG, JPG, GIF up to 5MB each
                   </p>
                 </div>
               </label>

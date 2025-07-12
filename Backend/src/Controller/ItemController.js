@@ -11,35 +11,43 @@ const LikeModel = require("../Model/LikeModel");
 
 const ItemController = {
     // Create a new item
+
     createItem: async (req, res) => {
         try {
-            const { title, description, category, size, condition, brand, color, tags } = req.body;
-            const owner = req.user.id;
+            const { title, description, category, size, condition, brand, color } = req.body;
+            let tags = [];
+
+            // Parse tags if they're provided as a string
+            if (req.body.tags) {
+                try {
+                    tags = typeof req.body.tags === "string" ? JSON.parse(req.body.tags) : req.body.tags;
+                } catch (e) {
+                    console.error("Error parsing tags:", e);
+                }
+            }
 
             // Validate required fields
             if (!title || !description || !category || !size || !condition) {
                 return res.status(400).json({
                     success: false,
-                    message: "Please provide all required fields",
+                    message: "Missing required fields",
                 });
             }
 
-            // Check if images are uploaded
-            if (!req.files || req.files.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please upload at least one image",
-                });
+            // Process uploaded images
+            const images = [];
+            if (req.files && req.files.length > 0) {
+                // Upload images to Cloudinary
+                const uploadPromises = req.files.map((file) => uploadToCloudinary(file.path, "items"));
+                const uploadedImages = await Promise.all(uploadPromises);
+
+                images.push(
+                    ...uploadedImages.map((img) => ({
+                        url: img.secure_url,
+                        public_id: img.public_id,
+                    }))
+                );
             }
-
-            // Upload images to cloudinary
-            const uploadPromises = req.files.map((file) => uploadToCloudinary(file.path, "items"));
-            const uploadedImages = await Promise.all(uploadPromises);
-
-            const images = uploadedImages.map((img) => ({
-                url: img.secure_url,
-                public_id: img.public_id,
-            }));
 
             // Create new item
             const newItem = new ItemModel({
@@ -48,12 +56,11 @@ const ItemController = {
                 category,
                 size,
                 condition,
-                brand,
-                color,
-                tags: tags ? JSON.parse(tags) : [],
+                brand: brand || "",
+                color: color || "",
+                tags,
                 images,
-                owner,
-                location: req.user.location || "Not specified",
+                owner: req.user.id,
             });
 
             await newItem.save();

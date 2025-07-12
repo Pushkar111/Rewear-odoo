@@ -1,4 +1,5 @@
 const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
