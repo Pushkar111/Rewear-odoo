@@ -1,119 +1,84 @@
-
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowRight, Clock, CheckCircle, XCircle, Package, Star, Calendar, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, Package, RefreshCw, UserCheck } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import swapService from '../services/swapService';
 
 const SwapHistory = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [swapHistory, setSwapHistory] = useState([]);
+  const [stats, setStats] = useState({
+    totalSwaps: 0,
+    pointsEarned: 0,
+    itemsSaved: 0,
+    averageRating: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const swapHistory = [
-    {
-      id: 1,
-      type: 'swap',
-      status: 'completed',
-      itemGiven: {
-        title: 'Vintage Denim Jacket',
-        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=150',
-        points: 85
-      },
-      itemReceived: {
-        title: 'Designer Handbag',
-        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=150',
-        points: 90
-      },
-      partner: 'Sarah Johnson',
-      date: '2024-01-20',
-      rating: 5
-    },
-    {
-      id: 2,
-      type: 'redeem',
-      status: 'completed',
-      itemGiven: null,
-      itemReceived: {
-        title: 'Summer Dress',
-        image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=150',
-        points: 65
-      },
-      partner: 'Emma Wilson',
-      date: '2024-01-18',
-      rating: 4
-    },
-    {
-      id: 3,
-      type: 'swap',
-      status: 'pending',
-      itemGiven: {
-        title: 'Nike Sneakers',
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=150',
-        points: 120
-      },
-      itemReceived: {
-        title: 'Leather Boots',
-        image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=150',
-        points: 115
-      },
-      partner: 'Mike Chen',
-      date: '2024-01-15',
-      rating: null
-    },
-    {
-      id: 4,
-      type: 'swap',
-      status: 'rejected',
-      itemGiven: {
-        title: 'Casual T-Shirt',
-        image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=150',
-        points: 25
-      },
-      itemReceived: {
-        title: 'Polo Shirt',
-        image: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=150',
-        points: 30
-      },
-      partner: 'Alex Rodriguez',
-      date: '2024-01-12',
-      rating: null
-    }
-  ];
+  useEffect(() => {
+    const fetchSwapHistory = async () => {
+      try {
+        setIsLoading(true);
+        const response = await swapService.getUserSwapHistory();
+        
+        if (response.success) {
+          setSwapHistory(response.data);
+          setStats(response.stats);
+        } else {
+          toast.error('Failed to load swap history');
+        }
+      } catch (error) {
+        console.error('Error fetching swap history:', error);
+        toast.error('Failed to load swap history');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSwapHistory();
+  }, []);
 
   const getStatusIcon = (status) => {
-    const icons = {
-      completed: CheckCircle,
-      pending: Clock,
-      rejected: XCircle
-    };
-    return icons[status] || Clock;
+    switch (status) {
+      case 'completed':
+        return <div className="bg-green-100 p-2 rounded-full"><RefreshCw className="h-5 w-5 text-green-600" /></div>;
+      case 'pending':
+        return <div className="bg-yellow-100 p-2 rounded-full"><Package className="h-5 w-5 text-yellow-600" /></div>;
+      case 'rejected':
+        return <div className="bg-red-100 p-2 rounded-full"><UserCheck className="h-5 w-5 text-red-600" /></div>;
+      default:
+        return <div className="bg-gray-100 p-2 rounded-full"><Package className="h-5 w-5 text-gray-600" /></div>;
+    }
   };
 
   const getStatusColor = (status) => {
-    const colors = {
-      completed: 'bg-green-500/10 text-green-600 border-green-200',
-      pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
-      rejected: 'bg-red-500/10 text-red-600 border-red-200'
-    };
-    return colors[status] || colors.pending;
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const getTypeColor = (type) => {
     return type === 'swap' 
-      ? 'bg-purple-500/10 text-purple-600 border-purple-200'
-      : 'bg-orange-500/10 text-orange-600 border-orange-200';
+      ? 'bg-purple-100 text-purple-800 border-purple-200' 
+      : 'bg-blue-100 text-blue-800 border-blue-200';
   };
 
   const renderStars = (rating) => {
-    if (!rating) return null;
+    if (!rating) return <span className="text-gray-500">Not rated</span>;
+    
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center">
         {[...Array(5)].map((_, i) => (
-          <Star
+          <Star 
             key={i}
-            className={`w-4 h-4 ${
-              i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-            }`}
+            className={`h-4 w-4 ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
           />
         ))}
       </div>
@@ -121,221 +86,219 @@ const SwapHistory = () => {
   };
 
   const filteredHistory = swapHistory.filter(swap => {
-    const matchesStatus = filterStatus === 'all' || swap.status === filterStatus;
-    const matchesType = filterType === 'all' || swap.type === filterType;
-    return matchesStatus && matchesType;
+    if (filterStatus !== 'all' && swap.status !== filterStatus) return false;
+    if (filterType !== 'all' && swap.type !== filterType) return false;
+    return true;
   });
 
+  // Handle rating a swap
+  const handleRateSwap = async (id, rating) => {
+    try {
+      const response = await swapService.rateSwap(id, rating);
+      if (response.success) {
+        toast.success('Rating submitted successfully');
+        // Update the local state with the new rating
+        setSwapHistory(prevHistory => 
+          prevHistory.map(swap => 
+            swap.id === id ? { ...swap, rating } : swap
+          )
+        );
+      } else {
+        toast.error('Failed to submit rating');
+      }
+    } catch (error) {
+      console.error('Error rating swap:', error);
+      toast.error('Failed to submit rating');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-cyan-50 dark:from-gray-950 dark:via-purple-950/20 dark:to-gray-900 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container-padding max-w-6xl mx-auto py-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8 text-center"
-        >
-          <h1 className="text-4xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-              Swap History
-            </span>
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 text-lg max-w-2xl mx-auto">
-            Track your sustainable fashion journey and see all your successful swaps and redemptions
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gradient">Your Swap History</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Track all your fashion swaps and redemptions
           </p>
-        </motion.div>
+        </div>
 
         {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
-        >
-          {[
-            { label: 'Total Swaps', value: '12', icon: Package, color: 'blue' },
-            { label: 'Points Earned', value: '420', icon: Star, color: 'yellow' },
-            { label: 'Items Saved', value: '18', icon: CheckCircle, color: 'green' },
-            { label: 'Average Rating', value: '4.8', icon: Star, color: 'purple' }
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index }}
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-lg"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                </div>
-                <div className={`p-3 rounded-xl ${
-                  stat.color === 'blue' ? 'bg-blue-500/10 text-blue-600' :
-                  stat.color === 'yellow' ? 'bg-yellow-500/10 text-yellow-600' :
-                  stat.color === 'green' ? 'bg-green-500/10 text-green-600' :
-                  'bg-purple-500/10 text-purple-600'
-                }`}>
-                  <stat.icon className="w-6 h-6" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-purple-100 dark:border-purple-900/30">
+            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Swaps</h3>
+            <p className="text-2xl font-bold mt-1 text-gradient">{stats.totalSwaps}</p>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-purple-100 dark:border-purple-900/30">
+            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Points Earned</h3>
+            <p className="text-2xl font-bold mt-1 text-gradient">{stats.pointsEarned}</p>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-purple-100 dark:border-purple-900/30">
+            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Items Saved</h3>
+            <p className="text-2xl font-bold mt-1 text-gradient">{stats.itemsSaved}</p>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-purple-100 dark:border-purple-900/30">
+            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Average Rating</h3>
+            <div className="flex items-center mt-1">
+              <p className="text-2xl font-bold text-gradient mr-2">{stats.averageRating}</p>
+              <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+            </div>
+          </div>
+        </div>
 
         {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
-        >
-          <Card className="backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border border-white/20">
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="completed">Completed</option>
-                      <option value="pending">Pending</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="relative">
-                    <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    >
-                      <option value="all">All Types</option>
-                      <option value="swap">Swaps</option>
-                      <option value="redeem">Redemptions</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Swap History List */}
-        <div className="space-y-6">
-          {filteredHistory.map((swap, index) => {
-            const StatusIcon = getStatusIcon(swap.status);
-            
-            return (
-              <motion.div
-                key={swap.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * index }}
-              >
-                <Card className="backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border border-white/20 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
-                  <CardContent className="p-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${getTypeColor(swap.type)}`}>
-                          {swap.type === 'swap' ? '🔄 Swap' : '🎁 Redeem'}
-                        </span>
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-full border ${getStatusColor(swap.status)}`}>
-                          <StatusIcon className="w-4 h-4" />
-                          <span className="capitalize">{swap.status}</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                        <Calendar className="w-4 h-4" />
-                        <span>{new Date(swap.date).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-
-                    {/* Swap Details */}
-                    <div className="flex items-center gap-6">
-                      {/* Left Item (Given) */}
-                      {swap.type === 'swap' ? (
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 rounded-xl">
-                            <img
-                              src={swap.itemGiven.image}
-                              alt={swap.itemGiven.title}
-                              className="w-16 h-16 rounded-lg object-cover"
-                            />
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900 dark:text-white">{swap.itemGiven.title}</h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Given</p>
-                              <p className="text-sm font-medium text-purple-600">{swap.itemGiven.points} points</p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex-1">
-                          <div className="flex items-center justify-center p-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl">
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-orange-600">{swap.itemReceived.points}</div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Points Used</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Arrow */}
-                      <div className="flex-shrink-0">
-                        <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full">
-                          <ArrowRight className="w-5 h-5 text-white" />
-                        </div>
-                      </div>
-
-                      {/* Right Item (Received) */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl">
-                          <img
-                            src={swap.itemReceived.image}
-                            alt={swap.itemReceived.title}
-                            className="w-16 h-16 rounded-lg object-cover"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 dark:text-white">{swap.itemReceived.title}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Received</p>
-                            <p className="text-sm font-medium text-purple-600">{swap.itemReceived.points} points</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        with <span className="font-medium text-gray-900 dark:text-white">{swap.partner}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {swap.rating && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">Rating:</span>
-                            {renderStars(swap.rating)}
-                          </div>
-                        )}
-                        {swap.status === 'completed' && !swap.rating && (
-                          <Button variant="outline" size="sm">
-                            Rate Experience
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
+              Status Filter
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
+              Type Filter
+            </label>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="all">All Types</option>
+              <option value="swap">Swaps</option>
+              <option value="redeem">Redemptions</option>
+            </select>
+          </div>
         </div>
+
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+          </div>
+        ) : (
+          <>
+            {/* Swap History List */}
+            {filteredHistory.length > 0 ? (
+              <div className="space-y-4">
+                {filteredHistory.map((swap) => (
+                  <div 
+                    key={swap.id} 
+                    className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-purple-100 dark:border-purple-900/30"
+                  >
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Status Icon */}
+                      <div className="flex-shrink-0">
+                        {getStatusIcon(swap.status)}
+                      </div>
+                      
+                      {/* Main Content */}
+                      <div className="flex-grow">
+                        {/* Status & Type Badges */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${getStatusColor(swap.status)}`}>
+                            {swap.status.charAt(0).toUpperCase() + swap.status.slice(1)}
+                          </span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${getTypeColor(swap.type)}`}>
+                            {swap.type === 'swap' ? 'Swap' : 'Redemption'}
+                          </span>
+                        </div>
+                        
+                        {/* Swap Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {swap.itemGiven && (
+                            <div className="flex gap-3 items-center">
+                              <img 
+                                src={swap.itemGiven.image} 
+                                alt={swap.itemGiven.title} 
+                                className="w-16 h-16 rounded-md object-cover bg-gray-100 dark:bg-gray-700"
+                              />
+                              <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">You gave</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">{swap.itemGiven.title}</p>
+                                <p className="text-sm text-purple-600 dark:text-purple-400">{swap.itemGiven.points} points</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-3 items-center">
+                            <img 
+                              src={swap.itemReceived.image} 
+                              alt={swap.itemReceived.title} 
+                              className="w-16 h-16 rounded-md object-cover bg-gray-100 dark:bg-gray-700"
+                            />
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">You received</p>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">{swap.itemReceived.title}</p>
+                              <p className="text-sm text-purple-600 dark:text-purple-400">{swap.itemReceived.points} points</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col justify-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">From</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{swap.partner}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {new Date(swap.date).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Rating */}
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Rating</p>
+                              {renderStars(swap.rating)}
+                            </div>
+                            
+                            {swap.status === 'completed' && !swap.rating && (
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map(r => (
+                                  <button 
+                                    key={r} 
+                                    onClick={() => handleRateSwap(swap.id, r)}
+                                    className="p-1 hover:text-yellow-400"
+                                  >
+                                    <Star className="h-5 w-5" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center border border-purple-100 dark:border-purple-900/30">
+                <h3 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">No swap history found</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
+                  {filterStatus !== 'all' || filterType !== 'all' 
+                    ? 'Try changing your filters to see more results' 
+                    : 'Start swapping items to build your history'}
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

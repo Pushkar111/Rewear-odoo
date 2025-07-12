@@ -47,7 +47,42 @@ const uploadMultipleFile = async (userObject, filePaths) => {
     }
 };
 
+
+// for Rewear odoo
+const uploadToCloudinary = async (filePath, folder = "rewear") => {
+    try {
+        const result = await cloudinary.uploader.upload(filePath, {
+            folder: folder
+        });
+        
+        // Delete file from local server
+        fs.unlinkSync(filePath);
+        
+        return result;
+    } catch (error) {
+        // Delete file from local server if upload fails
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+        throw error;
+    }
+};
+
+// Delete file from cloudinary
+const deleteFromCloudinary = async (publicId) => {
+    try {
+        await cloudinary.uploader.destroy(publicId);
+        return { success: true };
+    } catch (error) {
+        throw error;
+    }
+};
+
+
+
 module.exports = {
     uploadFile,
     uploadMultipleFile,
+    uploadToCloudinary,
+    deleteFromCloudinary
 };

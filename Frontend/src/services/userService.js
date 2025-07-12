@@ -86,6 +86,17 @@ const userService = {
         });
 
         return response.data;
+    }, 
+
+    // Get user's dashboard statistics
+    getUserStats: async() => {
+        try {
+            const response = await apiClient.get('/users/stats');
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching user stats:", error);
+            throw error;
+        }
     }
 }
 

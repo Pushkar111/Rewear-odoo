@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const ItemController = require("../Controller/ItemController");
 const authMiddleware = require("../Middleware/AuthMiddleware");
-const upload = require("../utils/multerConfig");
+const upload = require("../utils/MulterConfig");
 
 // Create a new item - protected
 router.post(
@@ -14,6 +14,9 @@ router.post(
 
 // Get all items - public
 router.get("/", ItemController.getAllItems);
+
+// Get user's items - protected (Must come BEFORE the /:id route!)
+router.get("/user/:userId", authMiddleware.validateToken, ItemController.getUserItems);
 
 // Get item by ID - public
 router.get("/:id", ItemController.getItemById);
@@ -28,9 +31,6 @@ router.put(
 
 // Delete item - protected
 router.delete("/:id", authMiddleware.validateToken, ItemController.deleteItem);
-
-// Get user's items - protected
-router.get("/user/:userId?", authMiddleware.validateToken, ItemController.getUserItems);
 
 // Toggle like on item - protected
 router.post("/:id/toggle-like", authMiddleware.validateToken, ItemController.toggleLike);

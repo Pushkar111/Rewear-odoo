@@ -49,7 +49,7 @@ const App = () => (
                             <div className="min-h-screen bg-background text-foreground">
                                 <Routes>
                                     {/* Main App Routes */}
-                                    <Route path="/" element={<Index />} />
+                                    <Route path="/" element={ <Index />} />
                                     <Route path="/login" element={<Login />} />
                                     <Route path="/register" element={<Register />} />
                                     <Route path="/forget-password" element={<ForgetPassword />} />

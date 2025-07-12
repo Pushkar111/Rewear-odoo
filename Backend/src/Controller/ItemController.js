@@ -1,6 +1,6 @@
 const ItemModel = require("../Model/ItemModel");
-const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary");
-
+const { uploadToCloudinary, deleteFromCloudinary } = require("../Utils/CloudinaryUtil");
+const LikeModel = require("../Model/LikeModel");
 // createItem
 // getAllItems
 // getItemById
@@ -8,8 +8,6 @@ const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinar
 // deleteItem
 // getUserItems
 // toggleLike
-
-
 
 const ItemController = {
     // Create a new item
@@ -22,7 +20,7 @@ const ItemController = {
             if (!title || !description || !category || !size || !condition) {
                 return res.status(400).json({
                     success: false,
-                    message: "Please provide all required fields"
+                    message: "Please provide all required fields",
                 });
             }
 
@@ -30,17 +28,17 @@ const ItemController = {
             if (!req.files || req.files.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    message: "Please upload at least one image"
+                    message: "Please upload at least one image",
                 });
             }
 
             // Upload images to cloudinary
-            const uploadPromises = req.files.map(file => uploadToCloudinary(file.path, "items"));
+            const uploadPromises = req.files.map((file) => uploadToCloudinary(file.path, "items"));
             const uploadedImages = await Promise.all(uploadPromises);
 
-            const images = uploadedImages.map(img => ({
+            const images = uploadedImages.map((img) => ({
                 url: img.secure_url,
-                public_id: img.public_id
+                public_id: img.public_id,
             }));
 
             // Create new item
@@ -55,7 +53,7 @@ const ItemController = {
                 tags: tags ? JSON.parse(tags) : [],
                 images,
                 owner,
-                location: req.user.location || "Not specified"
+                location: req.user.location || "Not specified",
             });
 
             await newItem.save();
@@ -63,14 +61,14 @@ const ItemController = {
             res.status(201).json({
                 success: true,
                 message: "Item created successfully",
-                data: newItem
+                data: newItem,
             });
         } catch (error) {
             console.error("Error creating item:", error);
             res.status(500).json({
                 success: false,
                 message: "Failed to create item",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -82,46 +80,42 @@ const ItemController = {
             const filter = {};
 
             // Apply filters
-            if (category && category !== 'all') {
+            if (category && category !== "all") {
                 filter.category = category;
             }
-            if (size && size !== 'all') {
+            if (size && size !== "all") {
                 filter.size = size;
             }
-            if (status && status !== 'all') {
+            if (status && status !== "all") {
                 filter.status = status;
             }
             if (searchTerm) {
-                filter.$or = [
-                    { title: { $regex: searchTerm, $options: 'i' } },
-                    { description: { $regex: searchTerm, $options: 'i' } },
-                    { tags: { $in: [new RegExp(searchTerm, 'i')] } }
-                ];
+                filter.$or = [{ title: { $regex: searchTerm, $options: "i" } }, { description: { $regex: searchTerm, $options: "i" } }, { tags: { $in: [new RegExp(searchTerm, "i")] } }];
             }
 
             // Only show active items to general users
             if (!req.query.includeAll) {
-                filter.status = 'active';
+                filter.status = "active";
             }
 
             const items = await ItemModel.find(filter)
                 .populate({
-                    path: 'owner',
-                    select: 'name profilePic location'
+                    path: "owner",
+                    select: "name profilePic location",
                 })
                 .sort({ createdAt: -1 });
 
             res.status(200).json({
                 success: true,
                 count: items.length,
-                data: items
+                data: items,
             });
         } catch (error) {
             console.error("Error fetching items:", error);
             res.status(500).json({
                 success: false,
                 message: "Failed to fetch items",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -129,16 +123,15 @@ const ItemController = {
     // Get item by ID
     getItemById: async (req, res) => {
         try {
-            const item = await ItemModel.findById(req.params.id)
-                .populate({
-                    path: 'owner',
-                    select: 'name profilePic location rating'
-                });
+            const item = await ItemModel.findById(req.params.id).populate({
+                path: "owner",
+                select: "name profilePic location rating",
+            });
 
             if (!item) {
                 return res.status(404).json({
                     success: false,
-                    message: "Item not found"
+                    message: "Item not found",
                 });
             }
 
@@ -148,14 +141,14 @@ const ItemController = {
 
             res.status(200).json({
                 success: true,
-                data: item
+                data: item,
             });
         } catch (error) {
             console.error("Error fetching item:", error);
             res.status(500).json({
                 success: false,
                 message: "Failed to fetch item",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -164,22 +157,22 @@ const ItemController = {
     updateItem: async (req, res) => {
         try {
             const { title, description, category, size, condition, brand, color, tags, status } = req.body;
-            
+
             // Find item and check ownership
             const item = await ItemModel.findById(req.params.id);
-            
+
             if (!item) {
                 return res.status(404).json({
                     success: false,
-                    message: "Item not found"
+                    message: "Item not found",
                 });
             }
 
             // Check if user is owner or admin
-            if (item.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+            if (item.owner.toString() !== req.user.id && req.user.role !== "admin") {
                 return res.status(403).json({
                     success: false,
-                    message: "Unauthorized access"
+                    message: "Unauthorized access",
                 });
             }
 
@@ -193,47 +186,39 @@ const ItemController = {
                 brand: brand || item.brand,
                 color: color || item.color,
                 tags: tags ? JSON.parse(tags) : item.tags,
-                status: status || item.status
+                status: status || item.status,
             };
 
             // Handle new images if uploaded
             if (req.files && req.files.length > 0) {
                 // Delete old images from cloudinary
-                const deletePromises = item.images.map(img => 
-                    deleteFromCloudinary(img.public_id)
-                );
+                const deletePromises = item.images.map((img) => deleteFromCloudinary(img.public_id));
                 await Promise.all(deletePromises);
 
                 // Upload new images
-                const uploadPromises = req.files.map(file => 
-                    uploadToCloudinary(file.path, "items")
-                );
+                const uploadPromises = req.files.map((file) => uploadToCloudinary(file.path, "items"));
                 const uploadedImages = await Promise.all(uploadPromises);
 
-                updateData.images = uploadedImages.map(img => ({
+                updateData.images = uploadedImages.map((img) => ({
                     url: img.secure_url,
-                    public_id: img.public_id
+                    public_id: img.public_id,
                 }));
             }
 
             // Update item
-            const updatedItem = await ItemModel.findByIdAndUpdate(
-                req.params.id,
-                updateData,
-                { new: true }
-            );
+            const updatedItem = await ItemModel.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
             res.status(200).json({
                 success: true,
                 message: "Item updated successfully",
-                data: updatedItem
+                data: updatedItem,
             });
         } catch (error) {
             console.error("Error updating item:", error);
             res.status(500).json({
                 success: false,
                 message: "Failed to update item",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -243,26 +228,24 @@ const ItemController = {
         try {
             // Find item and check ownership
             const item = await ItemModel.findById(req.params.id);
-            
+
             if (!item) {
                 return res.status(404).json({
                     success: false,
-                    message: "Item not found"
+                    message: "Item not found",
                 });
             }
 
             // Check if user is owner or admin
-            if (item.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+            if (item.owner.toString() !== req.user.id && req.user.role !== "admin") {
                 return res.status(403).json({
                     success: false,
-                    message: "Unauthorized access"
+                    message: "Unauthorized access",
                 });
             }
 
             // Delete images from cloudinary
-            const deletePromises = item.images.map(img => 
-                deleteFromCloudinary(img.public_id)
-            );
+            const deletePromises = item.images.map((img) => deleteFromCloudinary(img.public_id));
             await Promise.all(deletePromises);
 
             // Delete item
@@ -270,14 +253,14 @@ const ItemController = {
 
             res.status(200).json({
                 success: true,
-                message: "Item deleted successfully"
+                message: "Item deleted successfully",
             });
         } catch (error) {
             console.error("Error deleting item:", error);
             res.status(500).json({
                 success: false,
                 message: "Failed to delete item",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -285,22 +268,22 @@ const ItemController = {
     // Get user's items
     getUserItems: async (req, res) => {
         try {
+            // If userId is provided in params, use that, otherwise use the authenticated user's ID
             const userId = req.params.userId || req.user.id;
-            
-            const items = await ItemModel.find({ owner: userId })
-                .sort({ createdAt: -1 });
 
-            res.status(200).json({
+            const items = await ItemModel.find({ owner: userId }).sort({ createdAt: -1 }).populate("owner", "name profilePic");
+
+            return res.status(200).json({
                 success: true,
+                items,
                 count: items.length,
-                data: items
             });
         } catch (error) {
-            console.error("Error fetching user items:", error);
-            res.status(500).json({
+            console.error("Error in getUserItems:", error);
+            return res.status(500).json({
                 success: false,
                 message: "Failed to fetch user items",
-                error: error.message
+                error: error.message,
             });
         }
     },
@@ -309,11 +292,11 @@ const ItemController = {
     toggleLike: async (req, res) => {
         try {
             const item = await ItemModel.findById(req.params.id);
-            
+
             if (!item) {
                 return res.status(404).json({
                     success: false,
-                    message: "Item not found"
+                    message: "Item not found",
                 });
             }
 
@@ -321,7 +304,7 @@ const ItemController = {
             const userId = req.user.id;
             const isLiked = await LikeModel.findOne({
                 item: req.params.id,
-                user: userId
+                user: userId,
             });
 
             if (isLiked) {
@@ -334,16 +317,16 @@ const ItemController = {
                     success: true,
                     message: "Item unliked successfully",
                     isLiked: false,
-                    likes: item.likes
+                    likes: item.likes,
                 });
             } else {
                 // Like
                 const newLike = new LikeModel({
                     item: req.params.id,
-                    user: userId
+                    user: userId,
                 });
                 await newLike.save();
-                
+
                 item.likes += 1;
                 await item.save();
 
@@ -351,7 +334,7 @@ const ItemController = {
                     success: true,
                     message: "Item liked successfully",
                     isLiked: true,
-                    likes: item.likes
+                    likes: item.likes,
                 });
             }
         } catch (error) {
@@ -359,10 +342,10 @@ const ItemController = {
             res.status(500).json({
                 success: false,
                 message: "Failed to toggle like",
-                error: error.message
+                error: error.message,
             });
         }
-    }
+    },
 };
 
 module.exports = ItemController;

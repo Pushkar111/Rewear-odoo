@@ -1,23 +1,9 @@
-
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { 
-  Upload,
-  X,
-  Plus,
-  Camera,
-  Tag,
-  Package,
-  Info,
-  Star,
-  MapPin
-} from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { Button } from '../components/ui/button';
+import { Tag, Plus, X, Upload, Loader2 } from 'lucide-react';
+import itemService from '../services/itemService';
 
 const AddItem = () => {
   const navigate = useNavigate();
@@ -34,6 +20,7 @@ const AddItem = () => {
   });
   const [currentTag, setCurrentTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewImages, setPreviewImages] = useState([]);
 
   const categories = [
     'dresses', 'tops', 'pants', 'shoes', 'accessories', 'outerwear', 'activewear', 'undergarments'
@@ -44,50 +31,63 @@ const AddItem = () => {
   const colors = ['Black', 'White', 'Gray', 'Brown', 'Blue', 'Red', 'Green', 'Yellow', 'Pink', 'Purple', 'Orange', 'Multicolor'];
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData({
+      ...formData,
+      [field]: value
+    });
   };
 
   const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
-    if (formData.images.length + files.length > 5) {
-      toast.error('Maximum 5 images allowed');
-      return;
-    }
-
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFormData(prev => ({
-          ...prev,
-          images: [...prev.images, { file, preview: e.target.result, id: Date.now() + Math.random() }]
-        }));
-      };
-      reader.readAsDataURL(file);
+    
+    // Create preview URLs
+    const newPreviewImages = files.map(file => ({
+      id: Math.random().toString(36).substring(7),
+      url: URL.createObjectURL(file),
+      file: file
+    }));
+    
+    setPreviewImages([...previewImages, ...newPreviewImages]);
+    setFormData({
+      ...formData,
+      images: [...formData.images, ...files]
     });
   };
 
   const removeImage = (imageId) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter(img => img.id !== imageId)
-    }));
+    const updatedPreviews = previewImages.filter(image => image.id !== imageId);
+    
+    // Find the index of the image to remove
+    const imageIndex = previewImages.findIndex(image => image.id === imageId);
+    
+    // Create a new array of files excluding the removed one
+    const updatedImages = [...formData.images];
+    if (imageIndex !== -1) {
+      updatedImages.splice(imageIndex, 1);
+    }
+    
+    setPreviewImages(updatedPreviews);
+    setFormData({
+      ...formData,
+      images: updatedImages
+    });
   };
 
   const addTag = () => {
-    if (currentTag.trim() && !formData.tags.includes(currentTag.trim().toLowerCase())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, currentTag.trim().toLowerCase()]
-      }));
+    if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, currentTag.trim()]
+      });
       setCurrentTag('');
     }
   };
 
   const removeTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter(tag => tag !== tagToRemove)
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -106,13 +106,16 @@ const AddItem = () => {
     setIsSubmitting(true);
 
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = await itemService.createItem(formData);
       
-      toast.success('Item added successfully!');
-      navigate('/dashboard');
+      if (result.success) {
+        toast.success('Item added successfully!');
+        navigate('/dashboard');
+      } else {
+        toast.error(result.message || 'Failed to add item. Please try again.');
+      }
     } catch (error) {
-      toast.error('Failed to add item. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to add item. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -123,253 +126,238 @@ const AddItem = () => {
       <div className="container-padding max-w-4xl mx-auto py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-display font-bold text-gradient mb-4">
-            Add New Item
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Share your fashion treasures with the community
+          <h1 className="text-3xl font-bold text-gradient">List Your Item</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Share your fashion items and give them a second life
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Images Upload */}
-          <Card className="glass border-white/20">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Camera className="h-5 w-5 mr-2" />
-                Photos
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Add up to 5 high-quality photos of your item
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {formData.images.map((image) => (
-                  <div key={image.id} className="relative group">
-                    <img
-                      src={image.preview}
-                      alt="Preview"
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeImage(image.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-                
-                {formData.images.length < 5 && (
-                  <label className="border-2 border-dashed border-muted-foreground/25 rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
-                    <Upload className="h-6 w-6 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Add Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
-                  </label>
-                )}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          {/* Basic Info */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gradient-purple">Basic Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                  placeholder="e.g. Vintage Denim Jacket"
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Basic Information */}
-          <Card className="glass border-white/20">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Info className="h-5 w-5 mr-2" />
-                Basic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Vintage Floral Summer Dress"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    placeholder="e.g., Zara, H&M, Vintage"
-                    value={formData.brand}
-                    onChange={(e) => handleInputChange('brand', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <textarea
-                  id="description"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Describe your item in detail..."
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  required
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Brand
+                </label>
+                <input
+                  type="text"
+                  value={formData.brand}
+                  onChange={(e) => handleInputChange('brand', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                  placeholder="e.g. Levi's"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label>Category *</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {categories.map((category) => (
-                      <Button
-                        key={category}
-                        type="button"
-                        variant={formData.category === category ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleInputChange('category', category)}
-                        className="capitalize text-xs"
-                      >
-                        {category}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Size *</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {sizes.map((size) => (
-                      <Button
-                        key={size}
-                        type="button"
-                        variant={formData.size === size ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleInputChange('size', size)}
-                        className="text-xs"
-                      >
-                        {size}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Color</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {colors.map((color) => (
-                      <Button
-                        key={color}
-                        type="button"
-                        variant={formData.color === color ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleInputChange('color', color)}
-                        className="text-xs"
-                      >
-                        {color}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                  placeholder="Describe your item in detail including any wear and tear"
+                ></textarea>
               </div>
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label>Condition *</Label>
-                <div className="flex flex-wrap gap-2">
-                  {conditions.map((condition) => (
-                    <Button
-                      key={condition}
-                      type="button"
-                      variant={formData.condition === condition ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleInputChange('condition', condition)}
-                    >
-                      <Star className="h-3 w-3 mr-1" />
-                      {condition}
-                    </Button>
+          {/* Details */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gradient-purple">Item Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => handleInputChange('category', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            </CardContent>
-          </Card>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Size <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.size}
+                  onChange={(e) => handleInputChange('size', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                >
+                  <option value="">Select Size</option>
+                  {sizes.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Condition <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.condition}
+                  onChange={(e) => handleInputChange('condition', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                >
+                  <option value="">Select Condition</option>
+                  {conditions.map((condition) => (
+                    <option key={condition} value={condition}>{condition}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Color
+                </label>
+                <select
+                  value={formData.color}
+                  onChange={(e) => handleInputChange('color', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                >
+                  <option value="">Select Color</option>
+                  {colors.map((color) => (
+                    <option key={color} value={color}>{color}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
 
           {/* Tags */}
-          <Card className="glass border-white/20">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Tag className="h-5 w-5 mr-2" />
-                Tags
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Add tags to help others find your item
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Add a tag..."
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gradient-purple">Tags</h2>
+            <div className="flex items-center mb-2">
+              <div className="relative flex-1">
+                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
                   value={currentTag}
                   onChange={(e) => setCurrentTag(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  className="w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-900"
+                  placeholder="Add tags (e.g. summer, casual)"
                 />
-                <Button type="button" onClick={addTag} size="icon">
-                  <Plus className="h-4 w-4" />
-                </Button>
               </div>
-              
-              {formData.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {formData.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="flex items-center space-x-1">
-                      <span>#{tag}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => removeTag(tag)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <Button 
+                type="button"
+                onClick={addTag}
+                variant="secondary" 
+                className="ml-2"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+            
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {formData.tags.map((tag, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full px-3 py-1"
+                  >
+                    <span className="text-sm">{tag}</span>
+                    <button 
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-1.5 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* Submit */}
-          <div className="flex justify-end space-x-4">
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={() => navigate('/dashboard')}
-            >
-              Cancel
-            </Button>
+          {/* Images */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gradient-purple">
+              Images <span className="text-red-500">*</span>
+            </h2>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
+              <input 
+                type="file" 
+                id="images" 
+                multiple 
+                accept="image/*" 
+                onChange={handleImageUpload} 
+                className="hidden" 
+              />
+              <label htmlFor="images" className="cursor-pointer">
+                <div className="flex flex-col items-center">
+                  <Upload className="h-10 w-10 text-gray-400 mb-2" />
+                  <p className="text-gray-700 dark:text-gray-300 font-medium">Click to upload images</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                    PNG, JPG, GIF up to 5MB
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {previewImages.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                {previewImages.map((image) => (
+                  <div key={image.id} className="relative group">
+                    <img 
+                      src={image.url} 
+                      alt="Preview" 
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(image.id)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex justify-end">
             <Button 
               type="submit" 
-              className="gradient-primary text-white hover:opacity-90"
               disabled={isSubmitting}
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-8 py-2"
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                  Adding Item...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
                 </>
               ) : (
-                <>
-                  <Package className="h-4 w-4 mr-2" />
-                  Add Item
-                </>
+                'List Item'
               )}
             </Button>
           </div>

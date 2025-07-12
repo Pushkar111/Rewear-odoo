@@ -65,7 +65,20 @@ const validateToken = async (req, res, next) => {
     }
 };
 
+const authorizeAdmin = (req, res, next) => {
+    if (req.user && req.user.role && req.user.role.name === "ADMIN") {
+        next();
+    } else {
+        res.status(403).json({
+            message: "Forbidden access. You do not have the required permissions.ADMIN role is required.",
+            code: "FORBIDDEN",
+            success:false
+        });
+    }
+}
+
 
 module.exports = {
-    validateToken
+    validateToken, 
+    authorizeAdmin
 }
